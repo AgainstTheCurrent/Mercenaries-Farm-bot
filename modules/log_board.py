@@ -30,6 +30,8 @@ class LogHSMercs:
 
         self.enemiesBoard = {}
         self.enemiesId = {}
+        self.abilities = {}
+        self.enemyAbilities = {}
 
         self.zonechange_finished = False
 
@@ -78,6 +80,16 @@ class LogHSMercs:
             r"player=2\] .+? "
             "dstPos=(.)"
         )
+        regexEnemyAbility = (
+            ".+?entityName=(.+?) +"
+            "id=(.+?) "
+            "zone=LETTUCE_ABILITY "
+            ".+?player=2\] "
+            "to FRIENDLY LETTUCE_ABILITY .+?" 
+        )
+        regexEnemyAbilityUpdate = (
+            ".+?id=(.+?) cardId=.+? name=(.+?)\] tag=LETTUCE_ABILITY_TILE_VISUAL_ALL_VISIBLE value=(.+?) .* player=2.*"
+        )
         regexInHand = (
             ".+?entityName=(.+?) +"
             "id=.+ "
@@ -121,7 +133,12 @@ class LogHSMercs:
                 # dstpos = 0 if the card is going to GRAVEYARD
                 if dstpos != "0":
                     self.myBoard[dstpos] = mercId
-
+            elif "ZoneChangeList.ProcessChanges() - TRANSITIONING card" in line and re.search(regexEnemyAbility, line):
+                (enemyAbility, enemyAbilityId) = re.findall(regexEnemyAbility, line)[0]
+                self.abilities[enemyAbilityId] = enemyAbility
+            elif "ZoneChangeList.ProcessChanges() - processing" in line and re.search(regexEnemyAbilityUpdate, line):
+                (enemyId, enemy, enemyAbilityId) = re.findall(regexEnemyAbilityUpdate, line)[0]
+                self.enemyAbilities[enemyId] = self.abilities[enemyAbilityId]
             elif "ZoneChangeList.ProcessChanges() - processing" in line and re.search(
                 regexEnemyBoard, line
             ):
@@ -216,4 +233,10 @@ class LogHSMercs:
         return {
             key: self.enemiesId[self.enemiesBoard[key]]
             for key in self.enemiesBoard.keys()
+        }
+
+    def getEnemyAbilities(self):
+        return {
+            self.enemiesId[eid]: self.enemyAbilities[eid]
+            for eid in self.enemyAbilities if eid in self.enemiesBoard.values()
         }

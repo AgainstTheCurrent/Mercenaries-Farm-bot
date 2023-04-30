@@ -21,6 +21,7 @@ def chooseTreasure():
     note: Treasures are added to a queue (FIFO); if no matches are
     found, a random treasure is selected.
     """
+    result = False
     treasures_queue = PriorityQueue()
 
     for treasure in treasures_priority:
@@ -34,7 +35,9 @@ def chooseTreasure():
         treasure = str(f"{TREASURES_DIR}/{next_treasure}.png")
 
         if find_ellement(treasure, Action.move_and_click):
-            time.sleep(1)
+            result = True
+            log.info(f"Found treasure: {next_treasure}")
+            time.sleep(0.2)
             break
     else:
         found = False
@@ -42,7 +45,7 @@ def chooseTreasure():
             log.info("No known treasure found: looking for passive one")
             if find_ellement(UIElement.treasure_passive.filename, Action.move_and_click):
                 found = True
-                time.sleep(1)
+                time.sleep(0.2)
         
         if found is False:
             log.info("No known treasure found: picking random one")
@@ -50,11 +53,12 @@ def chooseTreasure():
             y = windowMP()[3] // 2
             x = windowMP()[2] // temp
             move_mouse_and_click(windowMP(), x, y)
-            time.sleep(1)
+            time.sleep(0.2)
 
     while not (
         find_ellement(Button.take.filename, Action.move_and_click)
         or find_ellement(Button.keep.filename, Action.move_and_click)
         or find_ellement(Button.replace.filename, Action.move_and_click)
     ):
-        time.sleep(1)
+        time.sleep(0.2)
+    return result

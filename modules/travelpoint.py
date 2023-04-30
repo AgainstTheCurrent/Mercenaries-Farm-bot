@@ -1,3 +1,4 @@
+from cmath import e
 import time
 import re
 
@@ -42,13 +43,20 @@ def travelpointSelection():
 
         location = settings_dict["location"]
         tag = f"travelpoint.{location}.scroll"
-        if location == "Barrens":
+        if location == "Boss Rush":
+            if not find_ellement(UIElement.mythic.filename, Action.move_and_click):
+                find_ellement(
+                    UIElement.Bossrush.filename,
+                    Action.move_and_click,
+                    jthreshold["travelpoints"],
+                )
+                find_ellement(UIElement.mythic.filename, Action.move_and_click)
+        elif location == "Barrens":
             find_ellement(
                 UIElement.Barrens.filename,
                 Action.move_and_click,
                 jthreshold["travelpoints"],
             )
-
         else:
             try:
                 mouse_scroll(jposition[tag])
@@ -65,12 +73,13 @@ def travelpointSelection():
         move_mouse(windowMP(), windowMP()[2] // 2, windowMP()[3] // 2)
         time.sleep(0.5)
 
-        if settings_dict["mode"] == "Normal":
-            find_ellement(UIElement.normal.filename, Action.move_and_click)
-        elif settings_dict["mode"] == "Heroic":
-            find_ellement(UIElement.heroic.filename, Action.move_and_click)
-        else:
-            log.error("Settings (for Heroic/Normal) unrecognized.")
+        if location != "Boss Rush":
+            if settings_dict["mode"] == "Normal":
+                find_ellement(UIElement.normal.filename, Action.move_and_click)
+            elif settings_dict["mode"] == "Heroic":
+                find_ellement(UIElement.heroic.filename, Action.move_and_click)
+            else:
+                log.error("Settings (for Heroic/Normal) unrecognized.")
 
     waitForItOrPass(Button.choose_travel, 2)
     find_ellement(Button.choose_travel.filename, Action.move_and_click)

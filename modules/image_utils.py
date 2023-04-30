@@ -170,11 +170,11 @@ def find_element_from_file(
 
     if click_coords is not None:
         click_coords = [click_coords[0] + left, click_coords[1] + top]
-        log.info(
+        log.debug(
             f"Found {file} ( {threshold} ) { click_coords[0] } { click_coords[1] }",
         )
     else:
-        print(f"Waiting for... {file}\033[K", end="\r")
+        # print(f"Waiting for... {file}\033[K", end="\r")
         log.debug(f"Looked for {file} ( {threshold} )")
 
     return click_coords

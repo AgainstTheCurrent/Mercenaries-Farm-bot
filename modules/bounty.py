@@ -51,7 +51,8 @@ def collect():
         move_mouse_and_click(windowMP(), windowMP()[2] / 1.9, windowMP()[3] / 1.3)
 
         # click done button in middle
-        move_mouse_and_click(windowMP(), windowMP()[2] / 1.9, windowMP()[3] / 1.8)
+        # move_mouse_and_click(windowMP(), windowMP()[2] / 1.9, windowMP()[3] / 1.8)
+        find_ellement(Button.done.filename, Action.move_and_click)
 
         # move the mouse to avoid a bug where it is over a card/hero (at the end)
         # hiding the "OK" button
@@ -211,10 +212,22 @@ def goToEncounter():
     log.info("goToEncounter : entering")
     time.sleep(2)
     travelEnd = False
-
+    triedTreasure = False
+    hasTreasure = False
+    
     while not travelEnd:
-
-        if find_ellement(Button.play.filename, Action.screenshot):
+        if find_ellement(UIElement.take_grey.filename, Action.screenshot):
+            log.info("Found treasure, start taking.")
+            if chooseTreasure():
+                hasTreasure = True
+            triedTreasure = True
+            time.sleep(1)
+        elif find_ellement(Button.play.filename, Action.screenshot):
+            if triedTreasure and not hasTreasure:
+                travelEnd = quitBounty()
+                break
+            move_mouse_and_click(windowMP(), windowMP()[2] / 2, windowMP()[3] / 1.3)
+            log.info("Starting next game.")
             if settings_dict["stopatbossfight"] is True and find_ellement(
                 UIElement.boss.filename, Action.screenshot
             ):
@@ -241,27 +254,22 @@ def goToEncounter():
             #    break
 
             retour = selectCardsInHand()
-            log.info(f"goToEncounter - retour = {retour}")
+            log.info(f"goToEncounter - result = {retour}")
             time.sleep(1)
-            if retour == "win":
+            if retour == "loose":
+                travelEnd = True
+                send_notification({"message": "goToEncounter : Battle lost"})
+                send_slack_notification(
+                    json.dumps({"text": "goToEncounter : Battle lost"})
+                )
+                log.info("goToEncounter : battle lost")
+            else:
                 log.info("goToEncounter : battle won")
                 while True:
-                    if not find_ellement(
-                        UIElement.take_grey.filename, Action.screenshot
-                    ):
+                    if not find_ellement(UIElement.take_grey.filename, Action.screenshot):
                         mouse_click()
-                        time.sleep(0.5)
+                        time.sleep(1)
                     else:
-                        chooseTreasure()
-                        break
-
-                    if not find_ellement(
-                        UIElement.replace_grey.filename, Action.screenshot
-                    ):
-                        mouse_click()
-                        time.sleep(0.5)
-                    else:
-                        chooseTreasure()
                         break
 
                     if find_ellement(
@@ -279,17 +287,6 @@ def goToEncounter():
                         collect()
                         travelEnd = True
                         break
-            elif retour == "loose":
-                travelEnd = True
-                send_notification({"message": "goToEncounter : Battle lost"})
-                send_slack_notification(
-                    json.dumps({"text": "goToEncounter : Battle lost"})
-                )
-                log.info("goToEncounter : Battle lost")
-            else:
-                travelEnd = True
-                log.info("goToEncounter : don't know what happened !")
-
         else:
             if not nextlvl():
                 break
@@ -298,11 +295,11 @@ def goToEncounter():
         if not find_ellement(UIElement.bounties.filename, Action.screenshot):
             look_at_campfire_completed_tasks()
             move_mouse_and_click(windowMP(), windowMP()[2] / 2, windowMP()[3] / 1.25)
-            time.sleep(2)
+            time.sleep(1)
 
     if not find_ellement(UIElement.bounties.filename, Action.screenshot):
         defaultCase()
-        time.sleep(2)
+        time.sleep(1)
 
 def travelToLevel(page="next"):
     """
@@ -311,12 +308,17 @@ def travelToLevel(page="next"):
 
     retour = False
 
-    if find_ellement(
-        f"levels/{settings_dict['location']}"
-        f"_{settings_dict['mode']}_{settings_dict['level']}.png",
-        Action.move_and_click,
-        jthreshold["levels"],
-    ):
+    if ((settings_dict['location'] == "Boss Rush" and
+        find_ellement(
+            f"levels/Bossrush_{settings_dict['level']}.png",
+            Action.move_and_click,
+            jthreshold["levels"],)) or
+        find_ellement(
+            f"levels/{settings_dict['location']}"
+            f"_{settings_dict['mode']}_{settings_dict['level']}.png",
+            Action.move_and_click,
+            jthreshold["levels"],
+    )):
         waitForItOrPass(Button.choose_level, 6)
         find_ellement(Button.choose_level.filename, Action.move_and_click)
         send_slack_notification(

@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 import time
 import sys
+import traceback
 
 from modules.gameloop import where
 from modules.battlenetloop import enter_from_battlenet
@@ -35,8 +36,8 @@ def main():
             log.info("Keyboard Interrupt %s", kerr)
             sys.exit(0)
         except Exception as error:
-            log.error("Error: %s", error)
-            time.sleep(1)
+            log.error(traceback.format_exc())
+            sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -66,6 +66,22 @@ def select_enemy_to_attack(index):
         retour = True
     return retour
 
+def select_enemy_to_attack_exact(index):
+    """Used to move the mouse over an enemy to attack it
+    (after selecting a merc's ability)
+    """
+    retour = False
+
+    if index:
+        time.sleep(0.1)
+        log.debug(f"Move index (index, x, y) : {index}")
+        move_mouse_and_click(
+            windowMP(), index[0], index[1],
+        )
+        retour = True
+    return retour
+
+
 
 def select_random_enemy_to_attack(enemies=None):
     """look for a random enemy
@@ -213,9 +229,6 @@ def get_ability_for_this_turn(name, minionSection, turn, defaultAbility=0):
             ability = defaultAbility
     else:
         ability = defaultAbility
-
-    log.info("%s Ability Selected : %s", name, ability)
-
     return str(ability)
 
 
@@ -227,6 +240,7 @@ def parse_ability_setting(ability):
         "name": None,
         "role": None,
         "type": None,
+        "enemyPos": None,
     }
 
     if ":" not in ability:
@@ -247,12 +261,24 @@ def parse_ability_setting(ability):
             elif key == "role":
                 # "role" should be "Protector", "Caster" or "Fighter"
                 retour["role"] = value
+            elif key == "enemyPos":
+                retour["enemyPos"] = int(value)
             else:
                 log.warning("Unknown parameter")
     return retour
 
 
-def didnt_find_a_name_for_this_one(name, minionSection, turn, defaultAbility=0):
+def get_ability_setting(merc, minionSection, turn, defaultAbility=0):
+    if not merc in mercsAbilities:
+        merc = re.sub(r" [0-9]$", "", merc)
+    return parse_ability_setting(
+        get_ability_for_this_turn(merc, minionSection, turn, defaultAbility)
+    )
+
+def get_ability(merc, minionSection, turn, defaultAbility=0):
+    return get_ability_setting(merc,minionSection, turn,defaultAbility)["ability"]
+
+def select_base_ability(name, minionSection, turn, defaultAbility=0):
     abilitiesWidth = windowMP()[2] // 14.2
     abilitiesHeigth = windowMP()[3] // 7.2
 
@@ -269,10 +295,9 @@ def didnt_find_a_name_for_this_one(name, minionSection, turn, defaultAbility=0):
         windowMP()[2] // 1.56,
     ]
 
-    abilityConfig = parse_ability_setting(
-        get_ability_for_this_turn(name, minionSection, turn, defaultAbility)
-    )
+    abilityConfig = get_ability_setting(name, minionSection, turn, defaultAbility)
     ability = abilityConfig["ability"]
+    log.info("%s Ability Selected : %s", name, ability)
     if ability == 0:
         log.debug("No ability selected (0)")
     elif ability >= 1 and ability <= 3:
@@ -306,24 +331,38 @@ def didnt_find_a_name_for_this_one(name, minionSection, turn, defaultAbility=0):
     return abilityConfig
 
 
-def select_ability(localhero, myBoard, enemies: Enemies, raund):
+def select_ability(localhero, myBoard, enemyBoard, enemies: Enemies, raund):
     """Select an ability for a mercenary.
         Depend on what is available and wich Round (battle)
     Click only on the ability (doesnt move to an enemy)
     """
-
+    abilitySetting = select_base_ability(
+        localhero, ability_section, raund, 1
+    )
+    ability = abilitySetting["ability"]
     if localhero in mercsAbilities:
         retour = False
         chooseone2 = [windowMP()[2] // 2.4, windowMP()[2] // 1.7]
         chooseone3 = [windowMP()[2] // 3, windowMP()[2] // 2, windowMP()[2] // 1.5]
-
-        abilitySetting = didnt_find_a_name_for_this_one(
-            localhero, ability_section, raund, 1
-        )
-        if abilitySetting["ability"] != 0:
-            ability = abilitySetting["ability"]
+        
+        if ability != 0:
             if isinstance(mercsAbilities[localhero][str(ability)], bool):
-                retour = mercsAbilities[localhero][str(ability)]
+                if (abilitySetting["enemyPos"]):
+                    time.sleep(0.2)
+                    select_enemy(abilitySetting["enemyPos"], enemyBoard)
+                    retour = False
+                elif (abilitySetting["name"]):
+                    # attacks.json  only contains "friend"
+                    time.sleep(0.2)
+                    move_mouse_and_click(
+                        windowMP(),
+                        ability_target_friend(
+                            "friend", myBoard, enemies, abilitySetting
+                        ),
+                        windowMP()[3] / 1.5,
+                    )
+                else:
+                    retour = mercsAbilities[localhero][str(ability)]
             elif mercsAbilities[localhero][str(ability)] == "chooseone3":
                 time.sleep(0.2)
                 move_mouse_and_click(
@@ -365,20 +404,36 @@ def select_ability(localhero, myBoard, enemies: Enemies, raund):
                         windowMP()[3] / 1.5,
                     )
     else:
-        localhero = re.sub(r" [0-9]$", "", localhero)
-        abilitySetting = didnt_find_a_name_for_this_one(localhero, "Neutral", raund, 1)
-        if abilitySetting["ability"] == 0:
-            retour = False
-        else:
-            retour = True
+        retour = (ability != 0)
 
     return retour
 
+def select_enemy(enemyPosition, enemyBoard):    
+    number = len(enemyBoard)
+
+    cardSize = int(windowMP()[2] / 12)
+    firstOdd = int(windowMP()[2] / 3)
+    firstEven = int(windowMP()[2] / 3.6)
+    positionOdd = []  # positionOdd=[640,800,960,1120,1280]
+    positionEven = []  # positionEven=[560,720,880,1040,1200,1360]
+    for i in range(6):
+        positionEven.append(int(firstEven + (i * cardSize)))
+        if i != 5:
+            positionOdd.append(int(firstOdd + (i * cardSize)))
+    if  number % 2 == 0:  # if enemy number is even
+        pos = int(2 - (number / 2 - 1) + (enemyPosition - 1))
+        x = positionEven[pos]
+    else:  # if enemy number is odd
+        pos = int(2 - (number - 1) / 2 + (enemyPosition - 1))
+        x = positionOdd[pos]
+    y = windowMP()[3] / 3.6
+    select_enemy_to_attack_exact([x, y])
 
 def take_turn_action(
     position,
     mercName,
     myMercs,
+    enemyBoard,
     enemies: Enemies,
     raund,
 ):
@@ -415,13 +470,17 @@ def take_turn_action(
 
     log.info("attack with : %s ( position : %s/%s =%s)", mercName, position, number, x)
 
+    ability = get_ability(mercName, ability_section, raund, 1)
+    if ability == 0:
+        return
+
     move_mouse_and_click(windowMP(), x, y)
     time.sleep(0.2)
     move_mouse(windowMP(), windowMP()[2] / 3, windowMP()[3] / 2)
     if mercName in mercslist:
         if (
             mercslist[mercName]["role"] == "Protector"
-            and select_ability(mercName, myMercs, enemies, raund)
+            and select_ability(mercName, myMercs, enemyBoard, enemies, raund)
             and not select_enemy_to_attack(enemies.green)
             and not select_enemy_to_attack(enemies.mol)
             and not select_enemy_to_attack(enemies.noclass)
@@ -430,7 +489,7 @@ def take_turn_action(
             select_random_enemy_to_attack([enemies.red, enemies.blue])
         elif (
             mercslist[mercName]["role"] == "Fighter"
-            and select_ability(mercName, myMercs, enemies, raund)
+            and select_ability(mercName, myMercs, enemyBoard, enemies, raund)
             and not select_enemy_to_attack(enemies.blue)
             and not select_enemy_to_attack(enemies.mol)
             and not select_enemy_to_attack(enemies.noclass)
@@ -439,14 +498,14 @@ def take_turn_action(
             select_random_enemy_to_attack([enemies.red, enemies.green])
         elif (
             mercslist[mercName]["role"] == "Caster"
-            and select_ability(mercName, myMercs, enemies, raund)
+            and select_ability(mercName, myMercs, enemyBoard, enemies, raund)
             and not select_enemy_to_attack(enemies.red)
             and not select_enemy_to_attack(enemies.mol)
             and not select_enemy_to_attack(enemies.noclass)
             and not select_enemy_to_attack(enemies.noclass2)
         ):
             select_random_enemy_to_attack([enemies.green, enemies.blue])
-    elif select_ability(mercName, myMercs, enemies, raund):
+    elif select_ability(mercName, myMercs, enemyBoard, enemies, raund):
         select_random_enemy_to_attack(
             [
                 enemies.red,
@@ -519,7 +578,6 @@ def find_enemy(enemy_role, ns=True):
         )
     return enemy
 
-
 def battle(zoneLog=None):
     """Find the cards on the battlefield (yours and those of your opponents)
     and make them battle until one of yours die
@@ -527,6 +585,7 @@ def battle(zoneLog=None):
     retour = True
 
     raund = 1
+    ignore = False
     while True:
         move_mouse(
             windowMP(),
@@ -544,13 +603,10 @@ def battle(zoneLog=None):
 
         find_ellement(Button.onedie.filename, Action.move_and_click)
 
-        if find_ellement(UIElement.win.filename, Action.screenshot) or find_ellement(
-            UIElement.win_final.filename, Action.screenshot
-        ):
+        if find_ellement(UIElement.win.filename, Action.screenshot) or find_ellement(UIElement.win_final.filename, Action.screenshot):
             retour = "win"
             move_mouse_and_click(windowMP(), windowMP()[2] / 2, windowMP()[3] / 1.3)
             zoneLog.cleanBoard()
-
             break
         elif find_ellement(UIElement.lose.filename, Action.screenshot):
             retour = "loose"
@@ -561,80 +617,105 @@ def battle(zoneLog=None):
             )
             zoneLog.cleanBoard()
             break
+        elif find_ellement(UIElement.take_grey.filename, Action.screenshot) or find_ellement(UIElement.reward_chest.filename, Action.screenshot):
+            retour = "win"
+            break
         elif find_ellement(
             Button.fight.filename, Action.screenshot
         ):  # or find_ellement(Button.startbattle1.filename, Action.screenshot):
 
             # looks for your enemies on board thanks to log file
-            enemies = zoneLog.getEnemyBoard()
-            log.info(f"Round {raund} : enemy board {enemies}")
+            enemyBoard = zoneLog.getEnemyBoard()
+            log.info(f"Round {raund} : enemy board {enemyBoard}")
             # looks for your Mercenaries on board thanks to log file
             mercenaries = zoneLog.getMyBoard()
             log.info(f"Round {raund} :  your board {mercenaries}")
+            enemyAbilities = zoneLog.getEnemyAbilities()
+            log.info(f"Round {raund} :  your board {enemyAbilities}")
 
-            # click on neutral zone to avoid problem with screenshot
-            # when you're looking for red/green/blue enemies
-            move_mouse_and_click(windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2)
+            if raund == 2 and 'Drakan' in enemyAbilities and enemyAbilities['Drakan'] == "Endurance Aura 3" and "Drek'Thar" in enemyAbilities:
+                ignore = True
 
-            time.sleep(0.5)
+            if raund == 3 and 'Drakan' in enemyAbilities and enemyAbilities['Drakan'] == "Endurance Aura 3" and "Drek'Thar" in enemyAbilities and not ignore:
+                global ability_section
+                ability_section = "Drek'Thar2"
+            
+            if raund >= 2 and 'Garr' in enemyAbilities:
+               if enemyAbilities['Garr'].startswith("Blade Flurry"):
+                   raund = 3
+               else:
+                   raund = 2
 
-            # try to target the enemy are (smaller is better to avoid to detect
-            # an enemy outside the zone)
-            enemyBoard_left = int(windowMP()[0] + (windowMP()[2] // 4))
-            enemyBoard_right = int(windowMP()[2] // 1.3) - (
-                enemyBoard_left - windowMP()[0]
-            )
-            enemyBoardScreenshot = [
-                enemyBoard_right,
-                windowMP()[3] // 2,
-                windowMP()[1],
-                enemyBoard_left,
-            ]
-
-            enemies = find_enemies(enemyBoardScreenshot)
-
-            # Go (mouse) to "central zone" and click on an empty space
-            # move_mouse_and_click(windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2)
-            # time.sleep(1)
-
+            skipTurn = True
             for i in mercenaries:
-                # Go (mouse) to "central zone" and click on an empty space
-                move_mouse_and_click(
-                    windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2
-                )
+                ability = get_ability(mercenaries[i], ability_section, raund, 1)
+                if ability != 0:
+                    skipTurn = False
+                    break
+            
+            if not skipTurn:
+                # click on neutral zone to avoid problem with screenshot
+                # when you're looking for red/green/blue enemies
+                move_mouse_and_click(windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2)
 
-                take_turn_action(
-                    int(i),
-                    mercenaries[i],
-                    # int(sorted(mercenaries)[-1]),
-                    mercenaries,
-                    enemies,
-                    raund,
+                # try to target the enemy are (smaller is better to avoid to detect
+                # an enemy outside the zone)
+                enemyBoard_left = int(windowMP()[0] + (windowMP()[2] // 4))
+                enemyBoard_right = int(windowMP()[2] // 1.3) - (
+                    enemyBoard_left - windowMP()[0]
                 )
-                # in rare case, the bot detects an enemy ("noclass" most of the
-                #   times) outside of the battlezone.
-                # the second click (to select the enemy),
-                #   which is on an empty space, doesnt work.
-                # next move : instead of selecting the next mercenaries (to choose an
-                #   ability), the mercenary is clicked on to be targeted (from
-                #   previous ability). Need a "rightclick" to cancel this action.
-                mouse_click("right")
-                time.sleep(0.1)
+                enemyBoardScreenshot = [
+                    enemyBoard_right,
+                    windowMP()[3] // 2,
+                    windowMP()[1],
+                    enemyBoard_left,
+                ]
+
+                enemies = find_enemies(enemyBoardScreenshot)
+                time.sleep(0.5)
+
+                # Go (mouse) to "central zone" and click on an empty space
+                # move_mouse_and_click(windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2)
+                # time.sleep(1)
+
+                for i in mercenaries:
+                    # Go (mouse) to "central zone" and click on an empty space
+                    move_mouse_and_click(
+                        windowMP(), windowMP()[2] // 2, windowMP()[3] // 1.2
+                    )
+                    take_turn_action(
+                        int(i),
+                        mercenaries[i],
+                        # int(sorted(mercenaries)[-1]),
+                        mercenaries,
+                        enemyBoard,
+                        enemies,
+                        raund,
+                    )
+                    # in rare case, the bot detects an enemy ("noclass" most of the
+                    #   times) outside of the battlezone.
+                    # the second click (to select the enemy),
+                    #   which is on an empty space, doesnt work.
+                    # next move : instead of selecting the next mercenaries (to choose an
+                    #   ability), the mercenary is clicked on to be targeted (from
+                    #   previous ability). Need a "rightclick" to cancel this action.
+                    mouse_click("right")
+                    time.sleep(0.2)
 
             i = 0
             while not find_ellement(Button.allready.filename, Action.move_and_click):
-                if i > 5:
+                if i > 2:
                     move_mouse(windowMP(), windowMP()[2] // 1.2, windowMP()[3] // 3)
                     mouse_click("right")
                     find_ellement(Button.fight.filename, Action.move_and_click)
                     break
                 time.sleep(0.2)
                 i += 1
-            time.sleep(3)
+            time.sleep(1)
+            
             raund += 1
 
     return retour
-
 
 def selectCardsInHand(zL=None):
     """Select the cards to put on battlefield
@@ -648,10 +729,16 @@ def selectCardsInHand(zL=None):
     log.debug("[ SETH - START]")
     retour = True
     global ability_section
-
-    # while not find_ellement(Button.num.filename, Action.screenshot):
-    #    time.sleep(2)
-    waitForItOrPass(Button.num, 60, 2)
+    
+    while not find_ellement(Button.num.filename, Action.screenshot):
+        while find_ellement(UIElement.win.filename, Action.screenshot) or find_ellement(UIElement.win_final.filename, Action.screenshot):
+            time.sleep(0.2)
+            move_mouse_and_click(windowMP(), windowMP()[2] / 2, windowMP()[3] / 1.3)
+            if zL:
+                zL.cleanBoard()
+            return "win"
+        time.sleep(2)
+    # waitForItOrPass(Button.num, 60, 2)
 
     if find_ellement(Button.num.filename, Action.screenshot):
         zL = LogHSMercs(settings_dict["zonelog"])
@@ -679,10 +766,10 @@ def selectCardsInHand(zL=None):
         countdown(wait_for_exp, 10, "Wait for XP : sleeping")
 
         log.debug(f"windowMP = {windowMP()}")
-        x1 = windowMP()[2] // 2.6
-        y1 = windowMP()[3] // 1.09
-        x2 = windowMP()[2] // 10
-        y2 = windowMP()[3] // 10
+        # x1 = windowMP()[2] // 2.6
+        # y1 = windowMP()[3] // 1.09
+        # x2 = windowMP()[2] // 10
+        # y2 = windowMP()[3] // 10
 
         # Look if user configured the bot to select cards in hand
         # and put them on board
@@ -695,14 +782,18 @@ def selectCardsInHand(zL=None):
                 if find_ellement(Button.allready.filename, Action.screenshot):
                     break
 
-        # let the "while". In future release,
-        #   we could add a function to select specifics cards
-        while not (
-            find_ellement(Button.num.filename, Action.move_and_click)
-            or find_ellement(Button.allready.filename, Action.move_and_click)
-        ):
-            move_mouse(windowMP(), x1, y1)
-            move_mouse(windowMP(), x2, y2)
+        ## let the "while". In future release,
+        ##   we could add a function to select specifics cards
+        #while not (
+        #    find_ellement(Button.num.filename, Action.move_and_click)
+        #    or find_ellement(Button.allready.filename, Action.move_and_click)
+        #):
+        #    if find_ellement(UIElement.win.filename, Action.screenshot) or find_ellement(UIElement.win_final.filename, Action.screenshot) or (UIElement.take_grey.filename, Action.screenshot):
+        #        return "win"
+        #    move_mouse(windowMP(), x1, y1)
+        #    time.sleep(0.2)
+        #    move_mouse(windowMP(), x2, y2)
+        #    time.sleep(0.2)
 
         retour = battle(zL)
         log.debug("[ SETH - END]")

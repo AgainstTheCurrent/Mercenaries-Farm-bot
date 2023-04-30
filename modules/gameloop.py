@@ -59,10 +59,8 @@ def where():
         selectGroup()
         time.sleep(1)
 
-    #    if find_ellement(Button.play.filename, Action.screenshot):
-    #        time.sleep(3)
-    #        goToEncounter()
-    #        # time.sleep(3)
+    if find_ellement(Button.play.filename, Action.screenshot) or find_ellement(UIElement.take_grey.filename, Action.screenshot):
+        goToEncounter()
 
     #    if find_ellement(UIElement.view_party.filename, Action.screenshot):
     #        nextlvl()

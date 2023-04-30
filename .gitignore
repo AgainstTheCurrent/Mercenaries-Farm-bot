@@ -18,6 +18,7 @@ development/
 # IDE Settings
 .vscode/
 .idea/
+.vs/
 
 # Personal Settings Files
 conf/user/*.ini

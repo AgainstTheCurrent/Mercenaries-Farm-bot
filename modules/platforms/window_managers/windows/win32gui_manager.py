@@ -57,7 +57,7 @@ class WindowMgrWindowsWin32Gui(WindowMgr):
             # print(hwnd)
             self._handles.append(hwnd)
             self._handle = hwnd
-            print(self._handle)
+            # print(self._handle)
 
     def _find_window(self, WINDOW_NAME, BNCount):
         self._handle = None
@@ -68,9 +68,9 @@ class WindowMgrWindowsWin32Gui(WindowMgr):
             log.info("Matched no window")
             return False
         if len(self._handles) > 1:
-            print(BNCount)
+            # print(BNCount)
             self._handle = self._handles[BNCount]
-            print(self._handle)
+            # print(self._handle)
         else:  # len(self._handles) == 1:
             self._handle = self._handles[0]
 
